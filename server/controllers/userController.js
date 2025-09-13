@@ -1,96 +1,96 @@
+// userController.js
 import sql from "../configs/db.js";
+import { clerkClient } from "@clerk/express";
 
-
-/**
- * Get all creations of a logged-in user
- */
+// ------------------------
+// Get all creations of a logged-in user
 export const getUserCreations = async (req, res) => {
   try {
-    // Ensure req.auth() returns userId correctly
-    const { userId } = req.auth(); 
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
+    const { userId, plan, free_usage } = req.auth;
 
+    // Fetch all creations by this user
     const creations = await sql`
-      SELECT * 
-      FROM creations 
-      WHERE user_id = ${userId} 
+      SELECT * FROM creations
+      WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `;
 
-    res.json({ success: true, creations });
+    res.json({
+      success: true,
+      creations,
+      plan,         // send plan to frontend if needed
+      free_usage,   // send free usage count
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error fetching user creations:", error);
+    res.json({ success: false, message: "Failed to fetch creations" });
   }
 };
 
-/**
- * Get all published creations
- */
+// ------------------------
+// Get all published creations
 export const getPublishedCreations = async (req, res) => {
   try {
     const creations = await sql`
-      SELECT * 
-      FROM creations 
-      WHERE publish = true 
+      SELECT * FROM creations
+      WHERE publish = true
       ORDER BY created_at DESC
     `;
 
     res.json({ success: true, creations });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error fetching published creations:", error);
+    res.json({ success: false, message: "Failed to fetch published creations" });
   }
 };
 
-/**
- * Toggle like/unlike on a creation
- */
+// ------------------------
+// Toggle like/unlike a creation
 export const toggleLikeCreation = async (req, res) => {
   try {
-    const { userId } = req.auth(); 
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
+    const { userId } = req.auth;
     const { id } = req.body;
-    if (!id) {
-      return res.status(400).json({ success: false, message: "Creation ID is required" });
-    }
 
-    const [creation] = await sql`SELECT * FROM creations WHERE id = ${id}`;
-
-    if (!creation) {
-      return res.status(404).json({ success: false, message: "Creation not found" });
-    }
-
-    const currentLikes = creation.likes || [];
-    const userIdStr = userId.toString();
-    let updatedLikes;
-    let message;
-
-    if (currentLikes.includes(userIdStr)) {
-      updatedLikes = currentLikes.filter(u => u !== userIdStr);
-      message = 'Creation unliked';
-    } else {
-      updatedLikes = [...currentLikes, userIdStr];
-      message = 'Creation liked';
-    }
-
-    // Format array safely for PostgreSQL text[]
-    const formattedArray = `{${updatedLikes.map(u => `"${u}"`).join(',')}}`;
-
-    await sql`
+    const [updated] = await sql`
       UPDATE creations
-      SET likes = ${formattedArray}::text[]
+      SET likes = CASE
+        WHEN ${userId} = ANY(likes) THEN array_remove(likes, ${userId})
+        ELSE array_append(likes, ${userId})
+      END
       WHERE id = ${id}
+      RETURNING likes;
     `;
 
-    res.json({ success: true, message, likes: updatedLikes });
+    if (!updated) {
+      return res.json({ success: false, message: "Creation not found" });
+    }
+
+    const liked = updated.likes.includes(userId.toString());
+
+    res.json({
+      success: true,
+      message: liked ? "Creation Liked" : "Creation Unliked",
+      likes: updated.likes,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error toggling like:", error);
+    res.json({ success: false, message: "Failed to toggle like" });
+  }
+};
+
+// ------------------------
+// Reset free usage (optional admin or daily reset)
+export const resetFreeUsage = async (req, res) => {
+  try {
+    const { userId } = req.auth;
+
+    await clerkClient.users.updateUserMetadata(userId, {
+      privateMetadata: { free_usage: 0 },
+    });
+
+    res.json({ success: true, message: "Free usage reset successfully" });
+  } catch (error) {
+    console.error("Error resetting free usage:", error);
+    res.json({ success: false, message: "Failed to reset free usage" });
   }
 };
