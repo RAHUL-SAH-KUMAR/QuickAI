@@ -1,25 +1,24 @@
-import React from 'react'
-import Navbar from '../components/Navbar.jsx'
-import Hero from '../components/Hero.jsx'
-import AiTools from '../components/AiTools.jsx'
-import Testimonial from '../components/Testimonial.jsx'
-import Plan from '../components/Plan.jsx'
-import Footer from '../components/Footer.jsx'
-
-
-
+import React from "react";
+import Navbar from "../components/Navbar";
+import Hero from "../components/Hero";
+import AiTools from "../components/AiTools";
+import Testimonial from "../components/Testimonial";
+import Plan from "../components/Plan";
+import Footer from "../components/Footer";
 
 const Home = () => {
   return (
-  <>
-  <Navbar />
-  <Hero />
-  <AiTools />
-  <Testimonial />
-  <Plan />
-  <Footer />
-  </>
-  )
-}
+    <>
+      <Navbar />
+      <main>
+        <Hero />
+        <AiTools />
+        <Testimonial />
+        <Plan />
+      </main>
+      <Footer />
+    </>
+  );
+};
 
-export default Home
+export default Home;

@@ -1,96 +1,61 @@
-// userController.js
 import sql from "../configs/db.js";
-import { clerkClient } from "@clerk/express";
 
-// ------------------------
-// Get all creations of a logged-in user
 export const getUserCreations = async (req, res) => {
   try {
-    const { userId, plan, free_usage } = req.auth;
+    const { userId } = req.auth();
 
-    // Fetch all creations by this user
-    const creations = await sql`
-      SELECT * FROM creations
-      WHERE user_id = ${userId}
-      ORDER BY created_at DESC
-    `;
-
-    res.json({
-      success: true,
-      creations,
-      plan,         // send plan to frontend if needed
-      free_usage,   // send free usage count
-    });
-  } catch (error) {
-    console.error("Error fetching user creations:", error);
-    res.json({ success: false, message: "Failed to fetch creations" });
-  }
-};
-
-// ------------------------
-// Get all published creations
-export const getPublishedCreations = async (req, res) => {
-  try {
-    const creations = await sql`
-      SELECT * FROM creations
-      WHERE publish = true
-      ORDER BY created_at DESC
-    `;
+    const creations =
+      await sql`SELECT * FROM creations WHERE user_id = ${userId} ORDER BY created_at DESC`;
 
     res.json({ success: true, creations });
   } catch (error) {
-    console.error("Error fetching published creations:", error);
-    res.json({ success: false, message: "Failed to fetch published creations" });
+    res.json({ success: false, message: error.message });
   }
 };
 
-// ------------------------
-// Toggle like/unlike a creation
-export const toggleLikeCreation = async (req, res) => {
-  try {
-    const { userId } = req.auth;
-    const { id } = req.body;
 
-    const [updated] = await sql`
-      UPDATE creations
-      SET likes = CASE
-        WHEN ${userId} = ANY(likes) THEN array_remove(likes, ${userId})
-        ELSE array_append(likes, ${userId})
-      END
-      WHERE id = ${id}
-      RETURNING likes;
-    `;
-
-    if (!updated) {
-      return res.json({ success: false, message: "Creation not found" });
+export const getPublishedCreations = async (req, res) => {
+    try {  
+      const creations =
+        await sql`SELECT * FROM creations WHERE publish= true ORDER BY created_at DESC`;
+  
+      res.json({ success: true, creations });
+    } catch (error) {
+      res.json({ success: false, message: error.message });
     }
+  };
+  
 
-    const liked = updated.likes.includes(userId.toString());
+  export const toggleLikeCreation = async (req, res) => {
+    try {  
+        const { userId } = req.auth();
+        const {id} = req.body
 
-    res.json({
-      success: true,
-      message: liked ? "Creation Liked" : "Creation Unliked",
-      likes: updated.likes,
-    });
-  } catch (error) {
-    console.error("Error toggling like:", error);
-    res.json({ success: false, message: "Failed to toggle like" });
-  }
-};
+        const [creation] = await sql ` SELECT * FROM creations WHERE id = ${id}`
 
-// ------------------------
-// Reset free usage (optional admin or daily reset)
-export const resetFreeUsage = async (req, res) => {
-  try {
-    const { userId } = req.auth;
+        if(!creation){
+            return res.json({ success: false, message: "Creation not found"})
+        }
 
-    await clerkClient.users.updateUserMetadata(userId, {
-      privateMetadata: { free_usage: 0 },
-    });
+        const currentLikes = creation.likes
+        const userIdStr = userId.toString();
+        let updatedLikes;
+        let message;
+        
+        if(currentLikes.includes(userIdStr)){
+            updatedLikes = currentLikes.filter((user)=> user !== userIdStr);
+            message = 'Creation Uliked'
+        } else{
+            updatedLikes = [...currentLikes, userIdStr]
+            message = 'Creation Liked'
+        }
 
-    res.json({ success: true, message: "Free usage reset successfully" });
-  } catch (error) {
-    console.error("Error resetting free usage:", error);
-    res.json({ success: false, message: "Failed to reset free usage" });
-  }
-};
+        const formattedArray = `{${updatedLikes.join(',')}}`
+
+        await sql `UPDATE creations SET likes = ${formattedArray}::text[] WHERE id = ${id}`
+      res.json({ success: true, message });
+    } catch (error) {
+      res.json({ success: false, message: error.message });
+    }
+  };
+  
