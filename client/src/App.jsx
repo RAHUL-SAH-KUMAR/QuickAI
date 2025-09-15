@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import WriteArticle from "./pages/WriteArticle";
 import BlogTitles from "./pages/BlogTitles";
 import GenerateImages from "./pages/GenerateImages";
-import RemoveBackground from "./pages/RemoveBackground";
+import RemoveBackground from "./pages/Removebackground";
 import RemoveObject from "./pages/RemoveObject";
 import ReviewResume from "./pages/ReviewResume";
 import Community from "./pages/Community";
