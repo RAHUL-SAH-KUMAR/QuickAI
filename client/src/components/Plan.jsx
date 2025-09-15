@@ -1,6 +1,7 @@
 import React from 'react'
 import {PricingTable} from '@clerk/clerk-react'
 
+
 const Plan = () => {
   return (
     <div className='max-w-2xl mx-auto z-20 my-30'>
@@ -10,7 +11,7 @@ const Plan = () => {
         </div>
 
         <div className='mt-14 max-sm:mx-8'>
-            <PricingTable/>
+         <PricingTable />
         </div>
       
     </div>

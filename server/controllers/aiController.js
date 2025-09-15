@@ -17,7 +17,7 @@ export const generateArticle = async (req, res) => {
     const { prompt, length } = req.body;
     const { plan, free_usage } = req;
 
-    if (plan !== "premium" && free_usage >= 10) {
+    if (plan !== "premium_usage" && free_usage >= 10) {
       return res.json({ success: false, message: "Limit reached. Upgrade to continue." });
     }
 
@@ -35,7 +35,7 @@ export const generateArticle = async (req, res) => {
       VALUES (${userId}, ${prompt}, ${content}, 'article')
     `;
 
-    if (plan !== "premium") {
+    if (plan !== "premium_usage") {
       await clerkClient.users.updateUserMetadata(userId, {
         privateMetadata: { free_usage: free_usage + 1 },
       });
@@ -53,7 +53,7 @@ export const generateBlogTitle = async (req, res) => {
     const { prompt } = req.body;
     const { plan, free_usage } = req;
 
-    if (plan !== "premium" && free_usage >= 10) {
+    if (plan !== "premium_usage" && free_usage >= 10) {
       return res.json({ success: false, message: "Limit reached. Upgrade to continue." });
     }
 
@@ -71,7 +71,7 @@ export const generateBlogTitle = async (req, res) => {
       VALUES (${userId}, ${prompt}, ${content}, 'blog-title')
     `;
 
-    if (plan !== "premium") {
+    if (plan !== "premium_usage") {
       await clerkClient.users.updateUserMetadata(userId, {
         privateMetadata: { free_usage: free_usage + 1 },
       });
@@ -87,10 +87,14 @@ export const generateImage = async (req, res) => {
   try {
     const { userId } = req.auth();
     const { prompt, publish } = req.body;
-    const { plan } = req;
+    const plan = req.plan;
 
-    if (plan !== "premium") {
-      return res.json({ success: false, message: "This feature is only available for premium subscriptions" });
+    // ✅ Correct premium check
+    if (plan !== "premium_usage") {
+      return res.json({
+        success: false,
+        message: "This feature is only available for premium subscriptions",
+      });
     }
 
     const formData = new FormData();
@@ -109,12 +113,13 @@ export const generateImage = async (req, res) => {
     const { secure_url } = await cloudinary.uploader.upload(base64Image);
 
     await sql`
-      INSERT INTO creations (user_id, prompt, content, type, publish) 
+      INSERT INTO creations (user_id, prompt, content, type, publish)
       VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})
     `;
 
     res.json({ success: true, content: secure_url });
   } catch (error) {
+    console.log(error.message);
     res.json({ success: false, message: error.message });
   }
 };
@@ -123,23 +128,30 @@ export const removeImageBackground = async (req, res) => {
   try {
     const { userId } = req.auth();
     const image = req.file;
-    const { plan } = req;
+    const plan = req.plan;
 
-    if (plan !== "premium") {
-      return res.json({ success: false, message: "This feature is only available for premium subscriptions" });
+    // ✅ Premium check
+    if (plan !== "premium_usage") {
+      return res.json({
+        success: false,
+        message: "This feature is only available for premium subscriptions",
+      });
     }
 
+    // ✅ Upload image with background removal transformation
     const { secure_url } = await cloudinary.uploader.upload(image.path, {
       transformation: [{ effect: "background_removal" }],
     });
 
+    // ✅ Save to DB
     await sql`
-      INSERT INTO creations (user_id, prompt, content, type) 
+      INSERT INTO creations (user_id, prompt, content, type)
       VALUES (${userId}, 'Remove background from image', ${secure_url}, 'image')
     `;
 
     res.json({ success: true, content: secure_url });
   } catch (error) {
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
@@ -149,26 +161,34 @@ export const removeImageObject = async (req, res) => {
     const { userId } = req.auth();
     const { object } = req.body;
     const image = req.file;
-    const { plan } = req;
+    const plan = req.plan;
 
-    if (plan !== "premium") {
-      return res.json({ success: false, message: "This feature is only available for premium subscriptions" });
+    // ✅ Premium check
+    if (plan !== "premium_usage") {
+      return res.json({
+        success: false,
+        message: "This feature is only available for premium subscriptions",
+      });
     }
 
+    // ✅ Upload original image
     const { public_id } = await cloudinary.uploader.upload(image.path);
 
+    // ✅ Generate new URL with object removal transformation
     const imageUrl = cloudinary.url(public_id, {
       transformation: [{ effect: `gen_remove:${object}` }],
       resource_type: "image",
     });
 
+    // ✅ Save to DB
     await sql`
-      INSERT INTO creations (user_id, prompt, content, type) 
+      INSERT INTO creations (user_id, prompt, content, type)
       VALUES (${userId}, ${`Removed ${object} from image`}, ${imageUrl}, 'image')
     `;
 
     res.json({ success: true, content: imageUrl });
   } catch (error) {
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
@@ -177,21 +197,31 @@ export const resumeReview = async (req, res) => {
   try {
     const { userId } = req.auth();
     const resume = req.file;
-    const { plan } = req;
+    const plan = req.plan;
 
-    if (plan !== "premium") {
-      return res.json({ success: false, message: "This feature is only available for premium subscriptions" });
+    // ✅ Premium check
+    if (plan !== "premium_usage") {
+      return res.json({
+        success: false,
+        message: "This feature is only available for premium subscriptions",
+      });
     }
 
+    // ✅ File size check (max 5MB)
     if (resume.size > 5 * 1024 * 1024) {
-      return res.json({ success: false, message: "Resume file size exceeds allowed size (5MB)." });
+      return res.json({
+        success: false,
+        message: "Resume file size exceeds allowed size (5MB).",
+      });
     }
 
+    // ✅ Parse PDF
     const dataBuffer = fs.readFileSync(resume.path);
     const pdfData = await pdf(dataBuffer);
 
-    const prompt = `Review the following resume and provide constructive feedback on its strengths, weaknesses, and areas for improvement. Resume Content:\n\n${pdfData.text}`;
+    const prompt = `Review the following resume and provide constructive feedback on its strengths, weaknesses, and areas for improvement.\n\nResume Content:\n\n${pdfData.text}`;
 
+    // ✅ AI response
     const response = await AI.chat.completions.create({
       model: "gemini-2.0-flash",
       messages: [{ role: "user", content: prompt }],
@@ -201,13 +231,15 @@ export const resumeReview = async (req, res) => {
 
     const content = response.choices[0].message.content;
 
+    // ✅ Save to DB
     await sql`
-      INSERT INTO creations (user_id, prompt, content, type) 
+      INSERT INTO creations (user_id, prompt, content, type)
       VALUES (${userId}, 'Review the uploaded resume', ${content}, 'resume-review')
     `;
 
     res.json({ success: true, content });
   } catch (error) {
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };

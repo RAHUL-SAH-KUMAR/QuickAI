@@ -1,32 +1,26 @@
-import express from 'express'
-import cors from 'cors'
-import 'dotenv/config'
-import { clerkMiddleware, requireAuth } from '@clerk/express'
-import aiRouter from './routes/aiRoutes.js'
-import connectCloudinary from './configs/cloudinary.js'
-import userRouter from './routes/userRoutes.js'
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
+import aiRouter from "./routes/aiRoutes.js";
+import userRouter from "./routes/userRoutes.js";
+import connectCloudinary from "./configs/cloudinary.js";
 
+const app = express();
 
-const app = express()
+// connect cloudinary
+await connectCloudinary();
 
-await connectCloudinary()
+app.use(cors());
+app.use(express.json());
+app.use(clerkMiddleware());
 
-app.use(cors())
-app.use(express.json())
-app.use(clerkMiddleware())
+app.get("/", (req, res) => res.send("Server is Live!"));
 
-// dotenv.config()
-
-app.get('/', (req, res)=>res.send('Server is Live!'))
-
-app.use(requireAuth())
-
-app.use('/api/ai', aiRouter)
-app.use('/api/user', userRouter)
+// protected routes
+app.use(requireAuth());
+app.use("/api/ai", aiRouter);
+app.use("/api/user", userRouter);
 
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, ()=>{
-    console.log('Server is running in port', PORT);
-    
-})
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
