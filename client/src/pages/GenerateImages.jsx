@@ -134,4 +134,3 @@ const GenerateImages = () => {
 };
 
 export default GenerateImages;
-
