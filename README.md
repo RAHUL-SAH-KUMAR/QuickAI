@@ -1,6 +1,6 @@
 🚀 QuickAI
 
-Live Demo → quickai-olive.vercel.app
+Live Demo → https://quick-ai-ten-henna.vercel.app/
 
 QuickAI is a powerful AI-powered content creation platform that transforms the way you write, design, and manage digital content. With a suite of premium AI tools, QuickAI helps you craft engaging articles, generate stunning images, and streamline your workflow — all in one place.
 
